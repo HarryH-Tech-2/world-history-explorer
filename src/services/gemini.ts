@@ -33,49 +33,72 @@ export function isGeminiConfigured(): boolean {
   return GEMINI_API_KEY.length > 0;
 }
 
-async function callGeminiImageAPI(prompt: string): Promise<string | null> {
-  try {
-    const response = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          responseModalities: ['IMAGE', 'TEXT'],
+// Track consecutive 429s to stop pre-generation when rate-limited
+let consecutive429s = 0;
+const MAX_429_BEFORE_STOP = 3;
+
+async function callGeminiImageAPI(prompt: string, maxRetries = 2): Promise<string | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ['IMAGE', 'TEXT'],
+          },
+        }),
+      });
 
-    if (!response.ok) {
-      console.error(`Gemini API error: ${response.status} ${response.statusText}`);
+      if (response.status === 429) {
+        consecutive429s++;
+        if (attempt < maxRetries) {
+          // Exponential backoff: 10s, 30s
+          const backoffMs = Math.pow(3, attempt + 1) * 3000;
+          console.warn(`Gemini 429 rate limit, retrying in ${backoffMs / 1000}s (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          continue;
+        }
+        console.warn('Gemini 429 rate limit, all retries exhausted');
+        return null;
+      }
+
+      // Successful non-429 response resets the counter
+      consecutive429s = 0;
+
+      if (!response.ok) {
+        console.error(`Gemini API error: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data: GeminiResponse = await response.json();
+
+      const parts = data.candidates?.[0]?.content?.parts;
+      if (!parts) {
+        console.error('Gemini API returned no parts');
+        return null;
+      }
+
+      const imagePart = parts.find((part) => part.inlineData?.data);
+      if (!imagePart?.inlineData?.data) {
+        console.error('Gemini API returned no image data');
+        return null;
+      }
+
+      return imagePart.inlineData.data;
+    } catch (error) {
+      console.error('Failed to generate image:', error);
       return null;
     }
-
-    const data: GeminiResponse = await response.json();
-
-    const parts = data.candidates?.[0]?.content?.parts;
-    if (!parts) {
-      console.error('Gemini API returned no parts');
-      return null;
-    }
-
-    const imagePart = parts.find((part) => part.inlineData?.data);
-    if (!imagePart?.inlineData?.data) {
-      console.error('Gemini API returned no image data');
-      return null;
-    }
-
-    return imagePart.inlineData.data;
-  } catch (error) {
-    console.error('Failed to generate image:', error);
-    return null;
   }
+  return null;
 }
 
 export async function generateImage(prompt: string): Promise<string | null> {
@@ -230,12 +253,11 @@ export async function getCachedImage(prompt: string): Promise<string | null> {
 }
 
 /**
- * Pre-generate event images in small batches to avoid rate-limiting.
- * Only generates images that aren't already cached.
+ * Pre-generate event images one at a time with generous delays.
+ * Stops entirely if rate-limited repeatedly.
  */
 async function preGenerateEventImages(events: Array<{ imagePrompt: string }>): Promise<void> {
-  const BATCH_SIZE = 3;
-  const BATCH_DELAY = 2000; // ms between batches
+  const DELAY_BETWEEN = 6000; // 6s between each request
 
   // Filter to only uncached events
   const uncached: string[] = [];
@@ -251,15 +273,20 @@ async function preGenerateEventImages(events: Array<{ imagePrompt: string }>): P
     return;
   }
 
-  console.log(`Pre-generating ${uncached.length} event images...`);
+  console.log(`Pre-generating ${uncached.length} event images (one at a time)...`);
 
-  for (let i = 0; i < uncached.length; i += BATCH_SIZE) {
-    const batch = uncached.slice(i, i + BATCH_SIZE);
-    await Promise.allSettled(batch.map((prompt) => generateImage(prompt)));
+  for (let i = 0; i < uncached.length; i++) {
+    // Stop if we've been rate-limited too many times in a row
+    if (consecutive429s >= MAX_429_BEFORE_STOP) {
+      console.warn(`Stopping pre-generation after ${consecutive429s} consecutive 429s. Will retry next app launch.`);
+      return;
+    }
 
-    // Delay between batches to avoid rate limits
-    if (i + BATCH_SIZE < uncached.length) {
-      await new Promise((r) => setTimeout(r, BATCH_DELAY));
+    await generateImage(uncached[i]);
+
+    // Delay between requests
+    if (i < uncached.length - 1) {
+      await new Promise((r) => setTimeout(r, DELAY_BETWEEN));
     }
   }
 
@@ -270,23 +297,36 @@ async function preGenerateEventImages(events: Array<{ imagePrompt: string }>): P
 export async function preGenerateAllImages(events?: Array<{ imagePrompt: string }>): Promise<void> {
   if (!isGeminiConfigured()) return;
 
-  // Phase 1: UI images (concurrently) - these are needed immediately
-  const uiTasks: Promise<unknown>[] = [
-    generateHomeBackground(),
-    generateWorldMapImage(),
-    ...Object.keys(GAME_MODE_ICON_PROMPTS).map((modeId) => generateGameModeIcon(modeId)),
+  // Reset rate-limit counter on each app launch
+  consecutive429s = 0;
+
+  // Phase 1: UI images sequentially with small delays to avoid rate limits
+  const UI_DELAY = 4000;
+  const uiGenerators = [
+    () => generateHomeBackground(),
+    () => generateWorldMapImage(),
+    ...Object.keys(GAME_MODE_ICON_PROMPTS).map((modeId) => () => generateGameModeIcon(modeId)),
   ];
 
-  Promise.allSettled(uiTasks).then((results) => {
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    console.log(`Pre-generated ${succeeded}/${results.length} UI images`);
-  });
+  (async () => {
+    let succeeded = 0;
+    for (let i = 0; i < uiGenerators.length; i++) {
+      if (consecutive429s >= MAX_429_BEFORE_STOP) {
+        console.warn('Stopping UI pre-generation due to rate limits');
+        break;
+      }
+      const result = await uiGenerators[i]();
+      if (result) succeeded++;
+      if (i < uiGenerators.length - 1) {
+        await new Promise((r) => setTimeout(r, UI_DELAY));
+      }
+    }
+    console.log(`Pre-generated ${succeeded}/${uiGenerators.length} UI images`);
 
-  // Phase 2: Event images (batched) - these load in the background
-  if (events && events.length > 0) {
-    // Delay event image generation so UI images finish first
-    setTimeout(() => {
+    // Phase 2: Event images after UI images are done
+    if (events && events.length > 0 && consecutive429s < MAX_429_BEFORE_STOP) {
+      await new Promise((r) => setTimeout(r, 5000));
       preGenerateEventImages(events);
-    }, 5000);
-  }
+    }
+  })();
 }

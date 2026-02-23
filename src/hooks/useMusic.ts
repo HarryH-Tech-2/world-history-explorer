@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface MusicTrack {
@@ -26,7 +27,7 @@ const DEFAULT_SETTINGS: MusicSettings = {
   isMuted: false,
 };
 
-let globalSound: Audio.Sound | null = null;
+let globalPlayer: AudioPlayer | null = null;
 let globalTrackId: string | null = null;
 
 export function useMusic() {
@@ -64,27 +65,27 @@ export function useMusic() {
   // Load and play a track
   const loadAndPlay = useCallback(async (trackId: string, muted: boolean) => {
     try {
-      // Unload existing sound
-      if (globalSound) {
-        await globalSound.unloadAsync();
-        globalSound = null;
+      // Release existing player
+      if (globalPlayer) {
+        globalPlayer.remove();
+        globalPlayer = null;
         globalTrackId = null;
       }
 
       const track = MUSIC_TRACKS.find(t => t.id === trackId);
       if (!track) return;
 
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
       });
 
-      const { sound } = await Audio.Sound.createAsync(
-        track.file,
-        { isLooping: true, volume: muted ? 0 : 0.3, shouldPlay: true }
-      );
+      const player = createAudioPlayer(track.file);
+      player.loop = true;
+      player.volume = muted ? 0 : 0.3;
+      player.play();
 
-      globalSound = sound;
+      globalPlayer = player;
       globalTrackId = trackId;
 
       if (mountedRef.current) {
@@ -106,7 +107,7 @@ export function useMusic() {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const settings: MusicSettings = raw ? JSON.parse(raw) : DEFAULT_SETTINGS;
 
-        if (!globalSound || globalTrackId !== settings.trackId) {
+        if (!globalPlayer || globalTrackId !== settings.trackId) {
           await loadAndPlay(settings.trackId, settings.isMuted);
         }
       } catch {}
@@ -120,8 +121,8 @@ export function useMusic() {
     setIsMuted(newMuted);
     saveSettings(currentTrackId, newMuted);
 
-    if (globalSound) {
-      await globalSound.setVolumeAsync(newMuted ? 0 : 0.3);
+    if (globalPlayer) {
+      globalPlayer.volume = newMuted ? 0 : 0.3;
     }
   }, [isMuted, currentTrackId, saveSettings]);
 

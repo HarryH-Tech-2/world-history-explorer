@@ -93,7 +93,7 @@ export const GAME_MODES: GameModeInfo[] = [
     id: 'timeline',
     name: 'Timeline',
     description: 'Arrange 5 events in the correct chronological order',
-    icon: 'swap-vertical',
+    icon: 'swap-vert',
     gradientStart: '#2563EB',
     gradientEnd: '#1D4ED8',
   },
