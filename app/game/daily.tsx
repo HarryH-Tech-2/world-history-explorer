@@ -1,0 +1,275 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
+import Animated, { FadeIn } from 'react-native-reanimated';
+
+import { colors } from '../../src/theme/colors';
+import { useGame } from '../../src/hooks/useGame';
+import { MAX_GUESSES } from '../../src/data/models';
+import { EventImage } from '../../src/components/EventImage';
+import { ScoreBar } from '../../src/components/ScoreBar';
+import { HintSection } from '../../src/components/HintSection';
+import { TimerDisplay } from '../../src/components/TimerDisplay';
+import { GameFeedback } from '../../src/components/GameFeedback';
+import { GlassCard } from '../../src/components/GlassCard';
+import { GradientButton } from '../../src/components/GradientButton';
+
+const ACCENT_COLORS: [string, string] = ['#DB2777', '#BE185D'];
+
+function getTodayFormatted(): string {
+  const now = new Date();
+  return now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+export default function DailyGameScreen() {
+  const router = useRouter();
+  const {
+    gameState,
+    startDailyChallenge,
+    submitAnswer,
+    revealHint,
+    nextEvent,
+    giveUp,
+    isGameComplete,
+  } = useGame();
+  const [yearInput, setYearInput] = useState('');
+
+  useEffect(() => {
+    startDailyChallenge();
+  }, []);
+
+  const currentEvent = gameState.events[gameState.currentIndex];
+  const revealedHints = currentEvent
+    ? currentEvent.hints.slice(0, gameState.hintsRevealed)
+    : [];
+
+  const guessesLeft = MAX_GUESSES - gameState.guessesUsed;
+
+  const handleSubmit = () => {
+    if (!yearInput.trim()) return;
+    submitAnswer(yearInput.trim());
+    setYearInput('');
+  };
+
+  const handleNext = () => {
+    if (isGameComplete) {
+      router.replace({
+        pathname: '/results',
+        params: {
+          score: String(gameState.score),
+          mode: gameState.mode,
+          total: String(gameState.events.length),
+          streak: String(gameState.bestStreak),
+        },
+      });
+    } else {
+      nextEvent();
+    }
+  };
+
+  if (!currentEvent) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
+            </Pressable>
+            <View style={styles.scoreBarWrapper}>
+              <ScoreBar
+                score={gameState.score}
+                streak={gameState.streak}
+                currentQuestion={gameState.currentIndex}
+                totalQuestions={gameState.events.length}
+              />
+            </View>
+            <TimerDisplay timeRemaining={gameState.timeRemaining} />
+          </Animated.View>
+
+          {/* Daily Banner */}
+          <Animated.View entering={FadeIn.duration(500).delay(50)} style={styles.dailyBanner}>
+            <View style={styles.dailyTitleRow}>
+              <MaterialIcons name="calendar-today" size={22} color="#DB2777" />
+              <Text style={styles.dailyTitle}>Daily Discovery</Text>
+            </View>
+            <Text style={styles.dailyDate}>{getTodayFormatted()}</Text>
+          </Animated.View>
+
+          {/* Event Name */}
+          <Animated.View entering={FadeIn.duration(500).delay(75)}>
+            <Text style={styles.eventNameBanner}>{currentEvent.name}</Text>
+          </Animated.View>
+
+          {/* Event Image */}
+          <Animated.View entering={FadeIn.duration(600).delay(150)}>
+            <EventImage
+              base64Image={gameState.imageUri}
+              isLoading={gameState.imageLoading}
+            />
+          </Animated.View>
+
+          {/* Game Content */}
+          {!gameState.isAnswered ? (
+            <Animated.View entering={FadeIn.duration(500).delay(250)} style={styles.gameContent}>
+              {/* Guesses indicator */}
+              <View style={styles.guessesRow}>
+                {Array.from({ length: MAX_GUESSES }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.guessDot, i < gameState.guessesUsed && styles.guessDotUsed]}
+                  />
+                ))}
+                <Text style={styles.guessesText}>
+                  {guessesLeft} {guessesLeft === 1 ? 'guess' : 'guesses'} remaining
+                </Text>
+              </View>
+
+              {gameState.guessesUsed > 0 && !gameState.isAnswered && (
+                <View style={styles.wrongGuessBar}>
+                  <MaterialIcons name="close" size={16} color={colors.error} />
+                  <Text style={styles.wrongGuessText}>Not quite! Try again.</Text>
+                </View>
+              )}
+
+              {/* Year Input */}
+              <GlassCard style={styles.inputCard}>
+                <Text style={styles.promptText}>When did this event occur?</Text>
+                <View style={styles.inputRow}>
+                  <MaterialIcons name="date-range" size={22} color="#DB2777" />
+                  <TextInput
+                    value={yearInput}
+                    onChangeText={setYearInput}
+                    placeholder='Enter year (e.g. 1776)'
+                    placeholderTextColor={colors.slate400}
+                    style={styles.textInput}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
+                  />
+                </View>
+              </GlassCard>
+
+              <GradientButton
+                text="Submit Answer"
+                onPress={handleSubmit}
+                icon="send"
+                gradientColors={ACCENT_COLORS}
+                disabled={!yearInput.trim()}
+                style={styles.submitButton}
+              />
+
+              <View style={styles.hintWrapper}>
+                <HintSection
+                  hints={revealedHints}
+                  totalHints={currentEvent.hints.length}
+                  onRevealHint={revealHint}
+                />
+              </View>
+
+              <Pressable onPress={giveUp} style={styles.giveUpButton}>
+                <MaterialIcons name="flag" size={16} color={colors.textTertiary} />
+                <Text style={styles.giveUpText}>Give Up</Text>
+              </Pressable>
+            </Animated.View>
+          ) : (
+            <Animated.View entering={FadeIn.duration(500)} style={styles.gameContent}>
+              <GameFeedback
+                isCorrect={gameState.isCorrect}
+                event={currentEvent}
+                pointsEarned={gameState.isCorrect ? gameState.score : 0}
+                isLastQuestion={isGameComplete}
+                onNext={handleNext}
+                accentColors={ACCENT_COLORS}
+              />
+            </Animated.View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.questionSurface },
+  flex: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { color: colors.textSecondary, fontSize: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
+  backButton: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
+  },
+  scoreBarWrapper: { flex: 1 },
+  dailyBanner: { alignItems: 'center', marginBottom: 8, paddingVertical: 8 },
+  dailyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dailyTitle: { fontSize: 20, fontWeight: '700', color: '#DB2777' },
+  dailyDate: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  eventNameBanner: {
+    fontSize: 18, fontWeight: '700', color: colors.textPrimary,
+    textAlign: 'center', marginBottom: 12,
+  },
+  gameContent: { marginTop: 20 },
+  guessesRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 6 },
+  guessDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FBCFE8' },
+  guessDotUsed: { backgroundColor: colors.error },
+  guessesText: { fontSize: 13, color: colors.textSecondary, marginLeft: 4, fontWeight: '500' },
+  wrongGuessBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 8, marginBottom: 12,
+  },
+  wrongGuessText: { fontSize: 13, color: colors.error, fontWeight: '500' },
+  inputCard: { marginBottom: 0 },
+  promptText: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 12 },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+    borderRadius: 14, paddingHorizontal: 16, borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)', gap: 12,
+  },
+  textInput: { flex: 1, height: 52, color: colors.textPrimary, fontSize: 16 },
+  submitButton: { marginTop: 16 },
+  hintWrapper: { marginTop: 20 },
+  giveUpButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, marginTop: 20, paddingVertical: 10,
+  },
+  giveUpText: { fontSize: 14, color: colors.textTertiary, fontWeight: '500' },
+});
