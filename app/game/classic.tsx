@@ -118,7 +118,7 @@ export default function ClassicGameScreen() {
           {/* Event Image */}
           <Animated.View entering={FadeIn.duration(600).delay(100)}>
             <EventImage
-              base64Image={gameState.imageUri}
+              imageSource={gameState.imageUri}
               isLoading={gameState.imageLoading}
             />
           </Animated.View>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { GlassCard } from '../../src/components/GlassCard';
 import { useStorage } from '../../src/hooks/useStorage';
 import { ACHIEVEMENTS, Achievement, MASCOTS } from '../../src/data/models';
 import { colors } from '../../src/theme/colors';
-import { generateMascotImage } from '../../src/services/gemini';
+import { MASCOT_IMAGES } from '../../src/data/imageRegistry';
 
 const { width } = Dimensions.get('window');
 const STAT_GAP = 12;
@@ -31,15 +31,8 @@ interface StatCardData {
 
 export default function ProfileScreen() {
   const { profile, isLoading } = useStorage();
-  const [mascotImage, setMascotImage] = useState<string | null>(null);
-
   const mascot = MASCOTS.find((m) => m.id === profile.mascot) ?? MASCOTS[0];
-
-  useEffect(() => {
-    generateMascotImage(profile.mascot).then((img) => {
-      if (img) setMascotImage(img);
-    });
-  }, [profile.mascot]);
+  const mascotImage = MASCOT_IMAGES[profile.mascot];
 
   const accuracy =
     profile.totalAnswers > 0
@@ -101,7 +94,7 @@ export default function ProfileScreen() {
           <View style={[styles.avatarCircle, { backgroundColor: mascot.color + '18' }]}>
             {mascotImage ? (
               <Image
-                source={{ uri: `data:image/png;base64,${mascotImage}` }}
+                source={mascotImage}
                 style={styles.avatarImage}
               />
             ) : (

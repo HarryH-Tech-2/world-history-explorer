@@ -137,7 +137,7 @@ export interface GameState {
   isCorrect: boolean;
   isTimed: boolean;
   timeRemaining: number;
-  imageUri: string | null;
+  imageUri: any;
   imageLoading: boolean;
   guessesUsed: number;
 }

@@ -1,24 +1,23 @@
 import React from 'react';
-import { View, Image, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, Image, StyleSheet, Text, ImageSourcePropType } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
 interface EventImageProps {
-  base64Image: string | null;
-  isLoading: boolean;
+  imageSource: ImageSourcePropType | null;
+  isLoading?: boolean;
 }
 
-export function EventImage({ base64Image, isLoading }: EventImageProps) {
+export function EventImage({ imageSource, isLoading }: EventImageProps) {
   return (
     <View style={styles.container}>
       {isLoading ? (
         <View style={styles.placeholder}>
-          <ActivityIndicator size="large" color={colors.orange500} />
-          <Text style={styles.loadingText}>Generating image...</Text>
+          <Text style={styles.loadingText}>Loading image...</Text>
         </View>
-      ) : base64Image ? (
+      ) : imageSource ? (
         <Image
-          source={{ uri: `data:image/png;base64,${base64Image}` }}
+          source={imageSource}
           style={styles.image}
           resizeMode="cover"
         />

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   Dimensions,
   Pressable,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -30,7 +29,7 @@ import { GlassCard } from '../../src/components/GlassCard';
 import { allHistoricalEvents } from '../../src/data/events';
 import { ERA_INFO, Era, HistoricalEvent } from '../../src/data/models';
 import { colors } from '../../src/theme/colors';
-import { generateWorldMapImage } from '../../src/services/gemini';
+import { UI_IMAGES } from '../../src/data/imageRegistry';
 
 const { width } = Dimensions.get('window');
 const MAP_WIDTH = width - 40;
@@ -212,15 +211,7 @@ function EventDot({
 export default function WorldMapScreen() {
   const [selectedEra, setSelectedEra] = useState<Era>('modern');
   const [selectedEvent, setSelectedEvent] = useState<HistoricalEvent | null>(null);
-  const [mapImage, setMapImage] = useState<string | null>(null);
-  const [mapLoading, setMapLoading] = useState(true);
-
-  useEffect(() => {
-    generateWorldMapImage().then(img => {
-      setMapImage(img);
-      setMapLoading(false);
-    }).catch(() => setMapLoading(false));
-  }, []);
+  const mapImage = UI_IMAGES.worldMap;
 
   const eraRange = ERA_RANGES[selectedEra];
   const filteredEvents = useMemo(
@@ -352,25 +343,13 @@ export default function WorldMapScreen() {
         <Animated.View entering={FadeIn.duration(600).delay(200)}>
           <GlassCard style={styles.mapCard} innerStyle={{ padding: 0 }}>
             <View style={styles.mapClip}>
-              {mapLoading ? (
-                <View style={styles.mapPlaceholder}>
-                  <ActivityIndicator size="large" color={colors.orange500} />
-                  <Text style={styles.mapLoadingText}>Generating map...</Text>
-                </View>
-              ) : (
-                <GestureDetector gesture={gesture}>
-                  <Animated.View style={[styles.mapInteractive, mapTransformStyle]}>
-                    {mapImage ? (
-                      <Image
-                        source={{ uri: `data:image/png;base64,${mapImage}` }}
-                        style={styles.mapImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={[styles.mapPlaceholder, { backgroundColor: '#E8DCC8' }]}>
-                        <MaterialIcons name="public" size={48} color={colors.orange300} />
-                      </View>
-                    )}
+              <GestureDetector gesture={gesture}>
+                <Animated.View style={[styles.mapInteractive, mapTransformStyle]}>
+                  <Image
+                    source={mapImage}
+                    style={styles.mapImage}
+                    resizeMode="cover"
+                  />
 
                     {/* Event dots overlaid on map */}
                     {filteredEvents.map(event => {
@@ -392,7 +371,6 @@ export default function WorldMapScreen() {
                     })}
                   </Animated.View>
                 </GestureDetector>
-              )}
             </View>
 
             <View style={styles.mapLegend}>

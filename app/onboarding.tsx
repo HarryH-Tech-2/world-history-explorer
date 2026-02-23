@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,7 +25,7 @@ import { GradientButton } from '../src/components/GradientButton';
 import { useStorage } from '../src/hooks/useStorage';
 import { MASCOTS, MascotId } from '../src/data/models';
 import { colors } from '../src/theme/colors';
-import { generateMascotImage } from '../src/services/gemini';
+import { MASCOT_IMAGES } from '../src/data/imageRegistry';
 
 const { width } = Dimensions.get('window');
 
@@ -208,18 +207,6 @@ function MascotPickerPage({
   selected: MascotId;
   onSelect: (id: MascotId) => void;
 }) {
-  const [mascotImages, setMascotImages] = useState<Record<string, string | null>>({});
-
-  useEffect(() => {
-    MASCOTS.forEach((mascot) => {
-      generateMascotImage(mascot.id).then((img) => {
-        if (img) {
-          setMascotImages((prev) => ({ ...prev, [mascot.id]: img }));
-        }
-      });
-    });
-  }, []);
-
   return (
     <View style={[styles.page, { width }]}>
       <Text style={styles.title}>Choose Your</Text>
@@ -228,7 +215,7 @@ function MascotPickerPage({
 
       <View style={styles.mascotGrid}>
         {MASCOTS.map((mascot) => {
-          const img = mascotImages[mascot.id];
+          const img = MASCOT_IMAGES[mascot.id];
           return (
             <Pressable
               key={mascot.id}
@@ -242,13 +229,12 @@ function MascotPickerPage({
             >
               {img ? (
                 <Image
-                  source={{ uri: `data:image/png;base64,${img}` }}
+                  source={img}
                   style={styles.mascotImage}
                 />
               ) : (
                 <View style={styles.mascotImagePlaceholder}>
                   <Text style={styles.mascotEmoji}>{mascot.emoji}</Text>
-                  <ActivityIndicator size="small" color={mascot.color} style={styles.mascotLoader} />
                 </View>
               )}
               <Text style={[

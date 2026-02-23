@@ -1,17 +1,10 @@
-import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
 import { colors } from '../src/theme/colors';
-import { preGenerateAllImages } from '../src/services/gemini';
-import { allHistoricalEvents } from '../src/data/events';
 
 export default function RootLayout() {
-  useEffect(() => {
-    preGenerateAllImages(allHistoricalEvents);
-  }, []);
-
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />

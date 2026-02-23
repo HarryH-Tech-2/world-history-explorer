@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,7 @@ import { GlassCard } from '../../src/components/GlassCard';
 import { useStorage } from '../../src/hooks/useStorage';
 import { GAME_MODES, GameModeId, MASCOTS } from '../../src/data/models';
 import { colors } from '../../src/theme/colors';
-import { generateHomeBackground, generateMascotImage, generateGameModeIcon } from '../../src/services/gemini';
+import { UI_IMAGES, MODE_ICONS, MASCOT_IMAGES } from '../../src/data/imageRegistry';
 import { useMusic } from '../../src/hooks/useMusic';
 
 const { width, height: screenHeight } = Dimensions.get('window');
@@ -103,7 +103,7 @@ function RealisticCloud({
   );
 }
 
-function AnimatedFullBackground({ bgImage }: { bgImage: string | null }) {
+function AnimatedFullBackground() {
   const shimmer = useSharedValue(0);
 
   useEffect(() => {
@@ -121,14 +121,13 @@ function AnimatedFullBackground({ bgImage }: { bgImage: string | null }) {
     opacity: interpolate(shimmer.value, [0, 1], [0.05, 0.12]),
   }));
 
-  if (bgImage) {
-    return (
-      <View style={styles.fullBackground}>
-        <Image
-          source={{ uri: `data:image/png;base64,${bgImage}` }}
-          style={styles.bgImage}
-          resizeMode="cover"
-        />
+  return (
+    <View style={styles.fullBackground}>
+      <Image
+        source={UI_IMAGES.homeBackground}
+        style={styles.bgImage}
+        resizeMode="cover"
+      />
         <LinearGradient
           colors={['rgba(0,0,0,0.1)', 'rgba(245,245,245,0.4)', 'rgba(245,245,245,0.8)', colors.surface]}
           locations={[0, 0.2, 0.45, 0.7]}
@@ -149,53 +148,13 @@ function AnimatedFullBackground({ bgImage }: { bgImage: string | null }) {
         <RealisticCloud x={-250} y={55} scale={0.9} speed={32000} delay={12000} />
       </View>
     );
-  }
-
-  return (
-    <LinearGradient
-      colors={['#87CEEB', '#A8D8EA', '#C8E6F0', '#E8F4FD', colors.surface]}
-      locations={[0, 0.2, 0.4, 0.65, 1]}
-      style={styles.fullBackground}
-    >
-      <RealisticCloud x={-150} y={40} scale={1.2} speed={26000} delay={0} />
-      <RealisticCloud x={-300} y={90} scale={0.85} speed={34000} delay={2000} />
-      <RealisticCloud x={-80} y={150} scale={0.65} speed={20000} delay={6000} />
-      <RealisticCloud x={-220} y={60} scale={1.0} speed={30000} delay={10000} />
-    </LinearGradient>
-  );
 }
 
 export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useStorage();
-  const [bgImage, setBgImage] = useState<string | null>(null);
-  const [mascotImage, setMascotImage] = useState<string | null>(null);
-  const [modeIcons, setModeIcons] = useState<Record<string, string | null>>({});
-
   const { isMuted, toggleMute } = useMusic();
   const mascot = MASCOTS.find(m => m.id === profile.mascot) || MASCOTS[0];
-
-  useEffect(() => {
-    generateHomeBackground().then(img => {
-      if (img) setBgImage(img);
-    });
-
-    GAME_MODES.forEach(mode => {
-      generateGameModeIcon(mode.id).then(img => {
-        if (img) {
-          setModeIcons(prev => ({ ...prev, [mode.id]: img }));
-        }
-      });
-    });
-  }, []);
-
-  useEffect(() => {
-    if (profile.mascot) {
-      generateMascotImage(profile.mascot).then(img => {
-        if (img) setMascotImage(img);
-      });
-    }
-  }, [profile.mascot]);
 
   const navigateToGame = (modeId: GameModeId) => {
     router.push(GAME_ROUTES[modeId] as any);
@@ -203,7 +162,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <AnimatedFullBackground bgImage={bgImage} />
+      <AnimatedFullBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -214,9 +173,9 @@ export default function HomeScreen() {
             <View style={styles.headerLeft}>
               <Text style={styles.welcomeText}>Welcome back,</Text>
               <View style={styles.nameRow}>
-                {mascotImage ? (
+                {MASCOT_IMAGES[profile.mascot] ? (
                   <Image
-                    source={{ uri: `data:image/png;base64,${mascotImage}` }}
+                    source={MASCOT_IMAGES[profile.mascot]}
                     style={styles.mascotAvatar}
                   />
                 ) : (
@@ -273,7 +232,7 @@ export default function HomeScreen() {
           {/* Game Mode Grid */}
           <View style={styles.grid}>
             {GAME_MODES.map((mode, index) => {
-              const iconImage = modeIcons[mode.id];
+              const iconImage = MODE_ICONS[mode.id];
               return (
                 <Animated.View
                   key={mode.id}
@@ -288,7 +247,7 @@ export default function HomeScreen() {
                     {iconImage ? (
                       <View style={styles.modeIconImageWrapper}>
                         <Image
-                          source={{ uri: `data:image/png;base64,${iconImage}` }}
+                          source={iconImage}
                           style={styles.modeIconImage}
                         />
                       </View>

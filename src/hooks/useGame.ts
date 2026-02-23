@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { HistoricalEvent, GameState, TimelineState, MAX_GUESSES } from '../data/models';
 import { allHistoricalEvents } from '../data/events';
-import { generateImage } from '../services/gemini';
+import { EVENT_IMAGES } from '../data/imageRegistry';
 import { calculateScore, calculateTimeBonus } from '../utils/score';
 
 const EVENTS_PER_GAME = 5;
@@ -84,18 +84,12 @@ function pickSpreadYears(count: number): HistoricalEvent[] {
   return picked;
 }
 
-async function loadImageForEvent(
+function loadImageForEvent(
   event: HistoricalEvent,
   setGameState: React.Dispatch<React.SetStateAction<GameState>>,
-): Promise<void> {
-  setGameState((prev) => ({ ...prev, imageLoading: true, imageUri: null }));
-  try {
-    const uri = await generateImage(event.imagePrompt);
-    setGameState((prev) => ({ ...prev, imageUri: uri, imageLoading: false }));
-  } catch (error) {
-    console.error('Failed to generate image:', error);
-    setGameState((prev) => ({ ...prev, imageUri: null, imageLoading: false }));
-  }
+): void {
+  const imageSource = EVENT_IMAGES[event.id] ?? null;
+  setGameState((prev) => ({ ...prev, imageUri: imageSource, imageLoading: false }));
 }
 
 export function useGame() {
