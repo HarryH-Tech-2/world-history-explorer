@@ -216,20 +216,77 @@ export async function generateWorldMapImage(): Promise<string | null> {
   return data;
 }
 
+/**
+ * Check if an event image is already cached (instant, no API call).
+ * Returns the cached base64 data or null.
+ */
+export async function getCachedImage(prompt: string): Promise<string | null> {
+  const cacheKey = IMAGE_CACHE_PREFIX + hashPrompt(prompt);
+  try {
+    return await AsyncStorage.getItem(cacheKey);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pre-generate event images in small batches to avoid rate-limiting.
+ * Only generates images that aren't already cached.
+ */
+async function preGenerateEventImages(events: Array<{ imagePrompt: string }>): Promise<void> {
+  const BATCH_SIZE = 3;
+  const BATCH_DELAY = 2000; // ms between batches
+
+  // Filter to only uncached events
+  const uncached: string[] = [];
+  for (const event of events) {
+    const cached = await getCachedImage(event.imagePrompt);
+    if (!cached) {
+      uncached.push(event.imagePrompt);
+    }
+  }
+
+  if (uncached.length === 0) {
+    console.log('All event images already cached');
+    return;
+  }
+
+  console.log(`Pre-generating ${uncached.length} event images...`);
+
+  for (let i = 0; i < uncached.length; i += BATCH_SIZE) {
+    const batch = uncached.slice(i, i + BATCH_SIZE);
+    await Promise.allSettled(batch.map((prompt) => generateImage(prompt)));
+
+    // Delay between batches to avoid rate limits
+    if (i + BATCH_SIZE < uncached.length) {
+      await new Promise((r) => setTimeout(r, BATCH_DELAY));
+    }
+  }
+
+  console.log('Event image pre-generation complete');
+}
+
 /** Pre-generate all static images on app startup for instant loading */
-export async function preGenerateAllImages(): Promise<void> {
+export async function preGenerateAllImages(events?: Array<{ imagePrompt: string }>): Promise<void> {
   if (!isGeminiConfigured()) return;
 
-  // Run all generations concurrently
-  const tasks: Promise<unknown>[] = [
+  // Phase 1: UI images (concurrently) - these are needed immediately
+  const uiTasks: Promise<unknown>[] = [
     generateHomeBackground(),
     generateWorldMapImage(),
     ...Object.keys(GAME_MODE_ICON_PROMPTS).map((modeId) => generateGameModeIcon(modeId)),
   ];
 
-  // Fire and forget - don't block the app
-  Promise.allSettled(tasks).then((results) => {
+  Promise.allSettled(uiTasks).then((results) => {
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    console.log(`Pre-generated ${succeeded}/${results.length} images`);
+    console.log(`Pre-generated ${succeeded}/${results.length} UI images`);
   });
+
+  // Phase 2: Event images (batched) - these load in the background
+  if (events && events.length > 0) {
+    // Delay event image generation so UI images finish first
+    setTimeout(() => {
+      preGenerateEventImages(events);
+    }, 5000);
+  }
 }

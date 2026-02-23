@@ -5,13 +5,14 @@ import { colors } from '../theme/colors';
 interface GlassCardProps {
   children: React.ReactNode;
   style?: ViewStyle;
+  innerStyle?: ViewStyle;
   onPress?: () => void;
 }
 
-export function GlassCard({ children, style, onPress }: GlassCardProps) {
+export function GlassCard({ children, style, innerStyle, onPress }: GlassCardProps) {
   const content = (
     <View style={[styles.card, style]}>
-      <View style={styles.inner}>{children}</View>
+      <View style={[styles.inner, innerStyle]}>{children}</View>
     </View>
   );
 

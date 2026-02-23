@@ -21,13 +21,16 @@ import Animated, {
   withRepeat,
   withTiming,
   withSequence,
+  withDelay,
   Easing,
+  interpolate,
 } from 'react-native-reanimated';
 import { GlassCard } from '../../src/components/GlassCard';
 import { useStorage } from '../../src/hooks/useStorage';
 import { GAME_MODES, GameModeId, MASCOTS } from '../../src/data/models';
 import { colors } from '../../src/theme/colors';
 import { generateHomeBackground, generateMascotImage, generateGameModeIcon } from '../../src/services/gemini';
+import { useMusic } from '../../src/hooks/useMusic';
 
 const { width, height: screenHeight } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -42,42 +45,80 @@ const GAME_ROUTES: Record<GameModeId, string> = {
   map_quest: '/game/map-quest',
 };
 
+/** A single realistic cloud made of multiple overlapping ellipses */
+function RealisticCloud({
+  x,
+  y,
+  scale,
+  speed,
+  delay: cloudDelay,
+}: {
+  x: number;
+  y: number;
+  scale: number;
+  speed: number;
+  delay: number;
+}) {
+  const translateX = useSharedValue(x);
+  const drift = useSharedValue(0);
+
+  useEffect(() => {
+    translateX.value = withDelay(
+      cloudDelay,
+      withRepeat(
+        withTiming(width + 200, { duration: speed, easing: Easing.linear }),
+        -1,
+        false
+      )
+    );
+    drift.value = withRepeat(
+      withSequence(
+        withTiming(6, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-6, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: drift.value },
+      { scale },
+    ],
+  }));
+
+  return (
+    <Animated.View style={[styles.cloudGroup, { top: y }, animStyle]}>
+      {/* Main body */}
+      <View style={[styles.cloudBlob, { width: 90, height: 32, borderRadius: 16, opacity: 0.55 }]} />
+      {/* Top puffs */}
+      <View style={[styles.cloudBlob, { width: 50, height: 28, borderRadius: 14, top: -12, left: 15, opacity: 0.5 }]} />
+      <View style={[styles.cloudBlob, { width: 40, height: 24, borderRadius: 12, top: -8, left: 45, opacity: 0.45 }]} />
+      {/* Wispy edges */}
+      <View style={[styles.cloudBlob, { width: 30, height: 16, borderRadius: 8, top: 2, left: -10, opacity: 0.3 }]} />
+      <View style={[styles.cloudBlob, { width: 28, height: 14, borderRadius: 7, top: 4, left: 75, opacity: 0.25 }]} />
+    </Animated.View>
+  );
+}
+
 function AnimatedFullBackground({ bgImage }: { bgImage: string | null }) {
-  const cloudX1 = useSharedValue(-100);
-  const cloudX2 = useSharedValue(-200);
   const shimmer = useSharedValue(0);
 
   useEffect(() => {
-    cloudX1.value = withRepeat(
-      withTiming(width + 100, { duration: 20000, easing: Easing.linear }),
-      -1,
-      false
-    );
-    cloudX2.value = withRepeat(
-      withTiming(width + 200, { duration: 30000, easing: Easing.linear }),
-      -1,
-      false
-    );
     shimmer.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
       false
     );
   }, []);
 
-  const cloud1Style = useAnimatedStyle(() => ({
-    transform: [{ translateX: cloudX1.value }],
-  }));
-
-  const cloud2Style = useAnimatedStyle(() => ({
-    transform: [{ translateX: cloudX2.value }],
-  }));
-
   const shimmerStyle = useAnimatedStyle(() => ({
-    opacity: 0.08 + shimmer.value * 0.06,
+    opacity: interpolate(shimmer.value, [0, 1], [0.05, 0.12]),
   }));
 
   if (bgImage) {
@@ -89,40 +130,37 @@ function AnimatedFullBackground({ bgImage }: { bgImage: string | null }) {
           resizeMode="cover"
         />
         <LinearGradient
-          colors={['rgba(0,0,0,0.15)', 'rgba(245,245,245,0.5)', 'rgba(245,245,245,0.85)', colors.surface]}
-          locations={[0, 0.25, 0.5, 0.75]}
+          colors={['rgba(0,0,0,0.1)', 'rgba(245,245,245,0.4)', 'rgba(245,245,245,0.8)', colors.surface]}
+          locations={[0, 0.2, 0.45, 0.7]}
           style={StyleSheet.absoluteFillObject}
         />
         <Animated.View style={[styles.shimmerOverlay, shimmerStyle]}>
           <LinearGradient
-            colors={['transparent', 'rgba(249,115,22,0.15)', 'transparent']}
+            colors={['transparent', 'rgba(249,115,22,0.2)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFillObject}
           />
         </Animated.View>
-        <Animated.View style={[styles.cloud, cloud1Style, { top: 50 }]}>
-          <View style={styles.cloudShape} />
-        </Animated.View>
-        <Animated.View style={[styles.cloud, cloud2Style, { top: 100 }]}>
-          <View style={[styles.cloudShape, { width: 60, height: 24 }]} />
-        </Animated.View>
+        {/* Realistic clouds */}
+        <RealisticCloud x={-150} y={30} scale={1.1} speed={28000} delay={0} />
+        <RealisticCloud x={-300} y={80} scale={0.8} speed={35000} delay={3000} />
+        <RealisticCloud x={-100} y={140} scale={0.6} speed={22000} delay={8000} />
+        <RealisticCloud x={-250} y={55} scale={0.9} speed={32000} delay={12000} />
       </View>
     );
   }
 
   return (
     <LinearGradient
-      colors={['#87CEEB', '#B8E4F9', '#E8F4FD', colors.surface]}
-      locations={[0, 0.25, 0.5, 1]}
+      colors={['#87CEEB', '#A8D8EA', '#C8E6F0', '#E8F4FD', colors.surface]}
+      locations={[0, 0.2, 0.4, 0.65, 1]}
       style={styles.fullBackground}
     >
-      <Animated.View style={[styles.cloud, cloud1Style, { top: 50 }]}>
-        <View style={styles.cloudShape} />
-      </Animated.View>
-      <Animated.View style={[styles.cloud, cloud2Style, { top: 100 }]}>
-        <View style={[styles.cloudShape, { width: 60, height: 24 }]} />
-      </Animated.View>
+      <RealisticCloud x={-150} y={40} scale={1.2} speed={26000} delay={0} />
+      <RealisticCloud x={-300} y={90} scale={0.85} speed={34000} delay={2000} />
+      <RealisticCloud x={-80} y={150} scale={0.65} speed={20000} delay={6000} />
+      <RealisticCloud x={-220} y={60} scale={1.0} speed={30000} delay={10000} />
     </LinearGradient>
   );
 }
@@ -134,15 +172,14 @@ export default function HomeScreen() {
   const [mascotImage, setMascotImage] = useState<string | null>(null);
   const [modeIcons, setModeIcons] = useState<Record<string, string | null>>({});
 
+  const { isMuted, toggleMute } = useMusic();
   const mascot = MASCOTS.find(m => m.id === profile.mascot) || MASCOTS[0];
 
-  // Load Gemini background + mascot image + mode icons
   useEffect(() => {
     generateHomeBackground().then(img => {
       if (img) setBgImage(img);
     });
 
-    // Load all game mode icons
     GAME_MODES.forEach(mode => {
       generateGameModeIcon(mode.id).then(img => {
         if (img) {
@@ -188,15 +225,30 @@ export default function HomeScreen() {
                 <Text style={styles.nameText}>{profile.name}</Text>
               </View>
             </View>
-            <Pressable
-              onPress={() => router.push('/settings')}
-              style={({ pressed }) => [
-                styles.settingsButton,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <MaterialIcons name="settings" size={26} color={colors.textSecondary} />
-            </Pressable>
+            <View style={styles.headerButtons}>
+              <Pressable
+                onPress={toggleMute}
+                style={({ pressed }) => [
+                  styles.headerIconButton,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <MaterialIcons
+                  name={isMuted ? 'volume-off' : 'volume-up'}
+                  size={22}
+                  color={isMuted ? colors.slate400 : colors.orange500}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push('/settings')}
+                style={({ pressed }) => [
+                  styles.headerIconButton,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <MaterialIcons name="settings" size={22} color={colors.textSecondary} />
+              </Pressable>
+            </View>
           </Animated.View>
 
           {/* Stats Summary */}
@@ -231,6 +283,7 @@ export default function HomeScreen() {
                   <GlassCard
                     onPress={() => navigateToGame(mode.id)}
                     style={styles.modeCard}
+                    innerStyle={styles.modeCardInner}
                   >
                     {iconImage ? (
                       <View style={styles.modeIconImageWrapper}>
@@ -306,14 +359,18 @@ const styles = StyleSheet.create({
   shimmerOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  cloud: {
+  cloudGroup: {
     position: 'absolute',
+    width: 120,
+    height: 50,
   },
-  cloudShape: {
-    width: 80,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+  cloudBlob: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   safeArea: {
     flex: 1,
@@ -358,10 +415,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  settingsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
@@ -426,6 +487,8 @@ const styles = StyleSheet.create({
   },
   modeCard: {
     minHeight: 160,
+  },
+  modeCardInner: {
     alignItems: 'center',
   },
   modeIconBox: {

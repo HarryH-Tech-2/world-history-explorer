@@ -16,6 +16,7 @@ import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 import { GlassCard } from '../src/components/GlassCard';
 import { GradientButton } from '../src/components/GradientButton';
 import { useStorage } from '../src/hooks/useStorage';
+import { useMusic } from '../src/hooks/useMusic';
 import { colors } from '../src/theme/colors';
 
 const APP_VERSION = '1.0.0';
@@ -23,6 +24,7 @@ const APP_VERSION = '1.0.0';
 export default function SettingsScreen() {
   const router = useRouter();
   const { profile, updateName, loadProfile } = useStorage();
+  const { currentTrackId, isMuted, toggleMute, selectTrack, tracks } = useMusic();
   const [editedName, setEditedName] = useState(profile.name);
   const [isSaved, setIsSaved] = useState(false);
 
@@ -122,8 +124,56 @@ export default function SettingsScreen() {
           </GlassCard>
         </Animated.View>
 
-        {/* About Section */}
+        {/* Music Section */}
         <Animated.View entering={SlideInRight.duration(400).delay(200)}>
+          <Text style={styles.sectionTitle}>Music</Text>
+          <GlassCard>
+            {/* Mute toggle */}
+            <Pressable onPress={toggleMute} style={styles.muteRow}>
+              <MaterialIcons
+                name={isMuted ? 'volume-off' : 'volume-up'}
+                size={22}
+                color={isMuted ? colors.slate400 : colors.orange500}
+              />
+              <Text style={styles.muteLabel}>
+                {isMuted ? 'Music Off' : 'Music On'}
+              </Text>
+              <View style={[styles.muteToggle, isMuted && styles.muteToggleOff]}>
+                <View style={[styles.muteToggleDot, isMuted && styles.muteToggleDotOff]} />
+              </View>
+            </Pressable>
+
+            <View style={styles.trackDivider} />
+
+            {/* Track list */}
+            <Text style={styles.trackListLabel}>Select Track</Text>
+            {tracks.map(track => {
+              const isActive = track.id === currentTrackId;
+              return (
+                <Pressable
+                  key={track.id}
+                  onPress={() => selectTrack(track.id)}
+                  style={[styles.trackRow, isActive && styles.trackRowActive]}
+                >
+                  <MaterialIcons
+                    name={isActive ? 'radio-button-checked' : 'radio-button-unchecked'}
+                    size={20}
+                    color={isActive ? colors.orange500 : colors.slate400}
+                  />
+                  <Text style={[styles.trackName, isActive && styles.trackNameActive]}>
+                    {track.name}
+                  </Text>
+                  {isActive && !isMuted && (
+                    <MaterialIcons name="equalizer" size={18} color={colors.orange500} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </GlassCard>
+        </Animated.View>
+
+        {/* About Section */}
+        <Animated.View entering={SlideInRight.duration(400).delay(300)}>
           <Text style={styles.sectionTitle}>About</Text>
           <GlassCard>
             <SettingsRow
@@ -135,7 +185,7 @@ export default function SettingsScreen() {
         </Animated.View>
 
         {/* Danger Zone */}
-        <Animated.View entering={SlideInRight.duration(400).delay(300)}>
+        <Animated.View entering={SlideInRight.duration(400).delay(400)}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
           <GlassCard style={styles.dangerCard}>
             <View style={styles.dangerContent}>
@@ -245,6 +295,74 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 2,
+  },
+  muteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  muteLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginLeft: 12,
+    flex: 1,
+  },
+  muteToggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.orange500,
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  muteToggleOff: {
+    backgroundColor: colors.slate300,
+  },
+  muteToggleDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.white,
+    alignSelf: 'flex-end',
+  },
+  muteToggleDotOff: {
+    alignSelf: 'flex-start',
+  },
+  trackDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginVertical: 14,
+  },
+  trackListLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    gap: 10,
+    marginBottom: 4,
+  },
+  trackRowActive: {
+    backgroundColor: 'rgba(249,115,22,0.06)',
+  },
+  trackName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  trackNameActive: {
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   settingsRow: {
     flexDirection: 'row',
