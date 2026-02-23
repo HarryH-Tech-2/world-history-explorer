@@ -157,3 +157,79 @@ export async function generateMascotImage(mascotId: string): Promise<string | nu
   }
   return data;
 }
+
+/** Game mode icon prompts for Gemini generation */
+const GAME_MODE_ICON_PROMPTS: Record<string, string> = {
+  classic:
+    'A stylized 3D icon of a vintage photograph frame with a glowing golden border, a tiny landscape painting inside showing ancient ruins, floating on a soft orange gradient background. Miniature, glossy, game-app icon style, 256x256, no text.',
+  timed:
+    'A stylized 3D icon of a futuristic hourglass with purple glowing sand particles flowing inside, electric sparks around it, floating on a soft purple gradient background. Miniature, glossy, game-app icon style, 256x256, no text.',
+  timeline:
+    'A stylized 3D icon of a vertical timeline with colorful event nodes connected by a glowing blue ribbon, tiny historical symbols at each node, floating on a soft blue gradient background. Miniature, glossy, game-app icon style, 256x256, no text.',
+  daily:
+    'A stylized 3D icon of a treasure chest calendar with a golden star bursting out, pink sparkles and confetti, floating on a soft pink gradient background. Miniature, glossy, game-app icon style, 256x256, no text.',
+  era_explorer:
+    'A stylized 3D icon of a compass overlaid on ancient scrolls with era symbols (pyramid, castle, rocket) orbiting around it, floating on a soft dark-orange gradient background. Miniature, glossy, game-app icon style, 256x256, no text.',
+  map_quest:
+    'A stylized 3D icon of a treasure map with a glowing location pin, tiny ocean waves and continent shapes, floating on a soft teal gradient background. Miniature, glossy, game-app icon style, 256x256, no text.',
+};
+
+/** Generate and cache a game mode icon image */
+export async function generateGameModeIcon(modeId: string): Promise<string | null> {
+  const CACHE_KEY = `mode_icon_v1_${modeId}`;
+
+  try {
+    const cached = await AsyncStorage.getItem(CACHE_KEY);
+    if (cached) return cached;
+  } catch {}
+
+  const prompt = GAME_MODE_ICON_PROMPTS[modeId];
+  if (!prompt) return null;
+
+  const data = await callGeminiImageAPI(prompt);
+  if (data) {
+    try {
+      await AsyncStorage.setItem(CACHE_KEY, data);
+    } catch {}
+  }
+  return data;
+}
+
+/** Generate and cache a stylized world map image */
+export async function generateWorldMapImage(): Promise<string | null> {
+  const CACHE_KEY = 'world_map_v1';
+
+  try {
+    const cached = await AsyncStorage.getItem(CACHE_KEY);
+    if (cached) return cached;
+  } catch {}
+
+  const prompt =
+    'A beautiful stylized illustrated world map with a vintage antique parchment aesthetic, showing all continents with soft watercolor textures in warm earth tones (tan, sienna, olive). Include subtle compass rose, dotted maritime trade routes, tiny illustrated landmarks (pyramids, colosseum, great wall, statue of liberty), decorative cartographic borders with ornamental corners. Soft warm lighting, old-world explorer aesthetic. Wide format 1200x700, no text labels.';
+
+  const data = await callGeminiImageAPI(prompt);
+  if (data) {
+    try {
+      await AsyncStorage.setItem(CACHE_KEY, data);
+    } catch {}
+  }
+  return data;
+}
+
+/** Pre-generate all static images on app startup for instant loading */
+export async function preGenerateAllImages(): Promise<void> {
+  if (!isGeminiConfigured()) return;
+
+  // Run all generations concurrently
+  const tasks: Promise<unknown>[] = [
+    generateHomeBackground(),
+    generateWorldMapImage(),
+    ...Object.keys(GAME_MODE_ICON_PROMPTS).map((modeId) => generateGameModeIcon(modeId)),
+  ];
+
+  // Fire and forget - don't block the app
+  Promise.allSettled(tasks).then((results) => {
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    console.log(`Pre-generated ${succeeded}/${results.length} images`);
+  });
+}

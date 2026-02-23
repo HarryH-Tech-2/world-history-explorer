@@ -184,7 +184,7 @@ export default function MapQuestScreen() {
               </View>
 
               <Pressable onPress={giveUp} style={styles.giveUpButton}>
-                <MaterialIcons name="flag" size={16} color={colors.textTertiary} />
+                <MaterialIcons name="flag" size={16} color={colors.error} />
                 <Text style={styles.giveUpText}>Give Up</Text>
               </Pressable>
             </Animated.View>
@@ -246,7 +246,10 @@ const styles = StyleSheet.create({
   hintWrapper: { marginTop: 20 },
   giveUpButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, marginTop: 20, paddingVertical: 10,
+    gap: 6, marginTop: 20, paddingVertical: 10, paddingHorizontal: 20,
+    backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)',
+    alignSelf: 'center',
   },
-  giveUpText: { fontSize: 14, color: colors.textTertiary, fontWeight: '500' },
+  giveUpText: { fontSize: 14, color: colors.error, fontWeight: '600' },
 });

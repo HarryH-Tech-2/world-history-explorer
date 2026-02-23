@@ -7,7 +7,6 @@ import {
   Pressable,
   Dimensions,
   Image,
-  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,20 +14,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import Animated, {
   FadeIn,
+  FadeInDown,
   SlideInRight,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import { GlassCard } from '../../src/components/GlassCard';
 import { useStorage } from '../../src/hooks/useStorage';
 import { GAME_MODES, GameModeId, MASCOTS } from '../../src/data/models';
 import { colors } from '../../src/theme/colors';
-import { generateHomeBackground, generateMascotImage } from '../../src/services/gemini';
+import { generateHomeBackground, generateMascotImage, generateGameModeIcon } from '../../src/services/gemini';
 
-const { width } = Dimensions.get('window');
+const { width, height: screenHeight } = Dimensions.get('window');
 const CARD_GAP = 12;
 const CARD_WIDTH = (width - 48 - CARD_GAP) / 2;
 
@@ -41,9 +42,10 @@ const GAME_ROUTES: Record<GameModeId, string> = {
   map_quest: '/game/map-quest',
 };
 
-function AnimatedSkyBackground({ bgImage }: { bgImage: string | null }) {
+function AnimatedFullBackground({ bgImage }: { bgImage: string | null }) {
   const cloudX1 = useSharedValue(-100);
   const cloudX2 = useSharedValue(-200);
+  const shimmer = useSharedValue(0);
 
   useEffect(() => {
     cloudX1.value = withRepeat(
@@ -53,6 +55,14 @@ function AnimatedSkyBackground({ bgImage }: { bgImage: string | null }) {
     );
     cloudX2.value = withRepeat(
       withTiming(width + 200, { duration: 30000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    shimmer.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+      ),
       -1,
       false
     );
@@ -66,23 +76,35 @@ function AnimatedSkyBackground({ bgImage }: { bgImage: string | null }) {
     transform: [{ translateX: cloudX2.value }],
   }));
 
+  const shimmerStyle = useAnimatedStyle(() => ({
+    opacity: 0.08 + shimmer.value * 0.06,
+  }));
+
   if (bgImage) {
     return (
-      <View style={styles.skyBackground}>
+      <View style={styles.fullBackground}>
         <Image
           source={{ uri: `data:image/png;base64,${bgImage}` }}
           style={styles.bgImage}
           resizeMode="cover"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(245,245,245,0.6)', colors.surface]}
-          locations={[0.2, 0.6, 1]}
+          colors={['rgba(0,0,0,0.15)', 'rgba(245,245,245,0.5)', 'rgba(245,245,245,0.85)', colors.surface]}
+          locations={[0, 0.25, 0.5, 0.75]}
           style={StyleSheet.absoluteFillObject}
         />
-        <Animated.View style={[styles.cloud, cloud1Style, { top: 30 }]}>
+        <Animated.View style={[styles.shimmerOverlay, shimmerStyle]}>
+          <LinearGradient
+            colors={['transparent', 'rgba(249,115,22,0.15)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+        <Animated.View style={[styles.cloud, cloud1Style, { top: 50 }]}>
           <View style={styles.cloudShape} />
         </Animated.View>
-        <Animated.View style={[styles.cloud, cloud2Style, { top: 70 }]}>
+        <Animated.View style={[styles.cloud, cloud2Style, { top: 100 }]}>
           <View style={[styles.cloudShape, { width: 60, height: 24 }]} />
         </Animated.View>
       </View>
@@ -92,13 +114,13 @@ function AnimatedSkyBackground({ bgImage }: { bgImage: string | null }) {
   return (
     <LinearGradient
       colors={['#87CEEB', '#B8E4F9', '#E8F4FD', colors.surface]}
-      locations={[0, 0.3, 0.6, 1]}
-      style={styles.skyBackground}
+      locations={[0, 0.25, 0.5, 1]}
+      style={styles.fullBackground}
     >
-      <Animated.View style={[styles.cloud, cloud1Style, { top: 30 }]}>
+      <Animated.View style={[styles.cloud, cloud1Style, { top: 50 }]}>
         <View style={styles.cloudShape} />
       </Animated.View>
-      <Animated.View style={[styles.cloud, cloud2Style, { top: 70 }]}>
+      <Animated.View style={[styles.cloud, cloud2Style, { top: 100 }]}>
         <View style={[styles.cloudShape, { width: 60, height: 24 }]} />
       </Animated.View>
     </LinearGradient>
@@ -110,13 +132,23 @@ export default function HomeScreen() {
   const { profile } = useStorage();
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [mascotImage, setMascotImage] = useState<string | null>(null);
+  const [modeIcons, setModeIcons] = useState<Record<string, string | null>>({});
 
   const mascot = MASCOTS.find(m => m.id === profile.mascot) || MASCOTS[0];
 
-  // Load Gemini background + mascot image
+  // Load Gemini background + mascot image + mode icons
   useEffect(() => {
     generateHomeBackground().then(img => {
       if (img) setBgImage(img);
+    });
+
+    // Load all game mode icons
+    GAME_MODES.forEach(mode => {
+      generateGameModeIcon(mode.id).then(img => {
+        if (img) {
+          setModeIcons(prev => ({ ...prev, [mode.id]: img }));
+        }
+      });
     });
   }, []);
 
@@ -134,14 +166,14 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <AnimatedSkyBackground bgImage={bgImage} />
+      <AnimatedFullBackground bgImage={bgImage} />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
+          <Animated.View entering={FadeInDown.duration(700).springify()} style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.welcomeText}>Welcome back,</Text>
               <View style={styles.nameRow}>
@@ -168,7 +200,7 @@ export default function HomeScreen() {
           </Animated.View>
 
           {/* Stats Summary */}
-          <Animated.View entering={FadeIn.duration(600).delay(150)}>
+          <Animated.View entering={FadeInDown.duration(600).delay(150).springify()}>
             <GlassCard style={styles.statsCard}>
               <View style={styles.statsRow}>
                 <StatItem icon="sports-esports" value={profile.totalGamesPlayed} label="Games" />
@@ -188,35 +220,47 @@ export default function HomeScreen() {
 
           {/* Game Mode Grid */}
           <View style={styles.grid}>
-            {GAME_MODES.map((mode, index) => (
-              <Animated.View
-                key={mode.id}
-                entering={SlideInRight.duration(400).delay(400 + index * 80)}
-                style={styles.gridItem}
-              >
-                <GlassCard
-                  onPress={() => navigateToGame(mode.id)}
-                  style={styles.modeCard}
+            {GAME_MODES.map((mode, index) => {
+              const iconImage = modeIcons[mode.id];
+              return (
+                <Animated.View
+                  key={mode.id}
+                  entering={SlideInRight.duration(400).delay(400 + index * 80)}
+                  style={styles.gridItem}
                 >
-                  <LinearGradient
-                    colors={[mode.gradientStart, mode.gradientEnd]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.modeIconBox}
+                  <GlassCard
+                    onPress={() => navigateToGame(mode.id)}
+                    style={styles.modeCard}
                   >
-                    <MaterialIcons
-                      name={mode.icon as keyof typeof MaterialIcons.glyphMap}
-                      size={28}
-                      color={colors.white}
-                    />
-                  </LinearGradient>
-                  <Text style={styles.modeName}>{mode.name}</Text>
-                  <Text style={styles.modeDescription} numberOfLines={2}>
-                    {mode.description}
-                  </Text>
-                </GlassCard>
-              </Animated.View>
-            ))}
+                    {iconImage ? (
+                      <View style={styles.modeIconImageWrapper}>
+                        <Image
+                          source={{ uri: `data:image/png;base64,${iconImage}` }}
+                          style={styles.modeIconImage}
+                        />
+                      </View>
+                    ) : (
+                      <LinearGradient
+                        colors={[mode.gradientStart, mode.gradientEnd]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.modeIconBox}
+                      >
+                        <MaterialIcons
+                          name={mode.icon as keyof typeof MaterialIcons.glyphMap}
+                          size={28}
+                          color={colors.white}
+                        />
+                      </LinearGradient>
+                    )}
+                    <Text style={styles.modeName}>{mode.name}</Text>
+                    <Text style={styles.modeDescription} numberOfLines={2}>
+                      {mode.description}
+                    </Text>
+                  </GlassCard>
+                </Animated.View>
+              );
+            })}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -247,17 +291,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
-  skyBackground: {
+  fullBackground: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 280,
+    bottom: 0,
     overflow: 'hidden',
   },
   bgImage: {
     width: '100%',
     height: '100%',
+  },
+  shimmerOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   cloud: {
     position: 'absolute',
@@ -315,7 +362,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.white,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center',
@@ -372,30 +419,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: CARD_GAP,
+    justifyContent: 'center',
   },
   gridItem: {
     width: CARD_WIDTH,
   },
   modeCard: {
     minHeight: 160,
+    alignItems: 'center',
   },
   modeIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+  },
+  modeIconImageWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  modeIconImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
   },
   modeName: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   modeDescription: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 17,
+    textAlign: 'center',
   },
 });

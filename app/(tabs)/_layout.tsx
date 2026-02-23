@@ -24,12 +24,13 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.orange500,
         tabBarInactiveTintColor: colors.slate400,
         tabBarIconStyle: {
-          marginBottom: -2,
+          marginBottom: 0,
+          marginTop: -4,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginTop: -4,
+          marginTop: -6,
         },
       }}
     >

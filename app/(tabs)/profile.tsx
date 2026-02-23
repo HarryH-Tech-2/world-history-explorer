@@ -6,6 +6,8 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  Pressable,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -161,6 +163,38 @@ export default function ProfileScreen() {
             })}
           </View>
         </Animated.View>
+
+        {/* Data & Privacy Policy */}
+        <Animated.View entering={FadeIn.duration(600).delay(800)}>
+          <Text style={styles.sectionTitle}>Data & Privacy</Text>
+          <GlassCard style={styles.policyCard}>
+            <View style={styles.policyItem}>
+              <View style={styles.policyIconBox}>
+                <MaterialIcons name="storage" size={20} color={colors.orange500} />
+              </View>
+              <View style={styles.policyTextContent}>
+                <Text style={styles.policyTitle}>Data Policy</Text>
+                <Text style={styles.policyDescription}>
+                  All game data is stored locally on your device. No personal information is collected or transmitted to external servers. Generated images are cached locally for performance.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.policyDivider} />
+
+            <View style={styles.policyItem}>
+              <View style={styles.policyIconBox}>
+                <MaterialIcons name="shield" size={20} color={colors.success} />
+              </View>
+              <View style={styles.policyTextContent}>
+                <Text style={styles.policyTitle}>Privacy Policy</Text>
+                <Text style={styles.policyDescription}>
+                  We respect your privacy. Image prompts are sent to Google Gemini API for generation only. No tracking, analytics, or third-party data sharing occurs. You can clear all cached data from Settings at any time.
+                </Text>
+              </View>
+            </View>
+          </GlassCard>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -281,6 +315,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 18,
   },
   statValue: {
@@ -288,12 +323,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
     marginTop: 8,
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
     marginTop: 4,
+    textAlign: 'center',
   },
   achievementsHeader: {
     flexDirection: 'row',
@@ -308,6 +345,7 @@ const styles = StyleSheet.create({
   },
   achievementsList: {
     gap: 10,
+    marginBottom: 28,
   },
   achievementRow: {
     flexDirection: 'row',
@@ -362,5 +400,41 @@ const styles = StyleSheet.create({
   },
   achievementDescLocked: {
     color: colors.textTertiary,
+  },
+  policyCard: {
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+  },
+  policyItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  policyIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(249,115,22,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  policyTextContent: {
+    flex: 1,
+  },
+  policyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  policyDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 19,
+  },
+  policyDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginVertical: 16,
   },
 });
