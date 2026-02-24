@@ -76,7 +76,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: 'classic',
     name: 'Classic',
-    description: 'Guess the historical event from an AI-generated image',
+    description: 'See the scene, guess the year',
     icon: 'image',
     gradientStart: '#F97316',
     gradientEnd: '#EA580C',
@@ -84,7 +84,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: 'timed',
     name: 'Timed',
-    description: 'Race against the clock! Faster answers earn bonus points',
+    description: 'Beat the clock for bonus points',
     icon: 'timer',
     gradientStart: '#7C3AED',
     gradientEnd: '#6D28D9',
@@ -92,7 +92,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: 'timeline',
     name: 'Timeline',
-    description: 'Arrange 5 events in the correct chronological order',
+    description: 'Sort events oldest to newest',
     icon: 'swap-vert',
     gradientStart: '#2563EB',
     gradientEnd: '#1D4ED8',
@@ -100,7 +100,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: 'daily',
     name: 'Daily Discovery',
-    description: '5 new events every day. Compare scores with the world!',
+    description: 'Fresh challenges every day',
     icon: 'calendar-today',
     gradientStart: '#DB2777',
     gradientEnd: '#BE185D',
@@ -108,7 +108,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: 'era_explorer',
     name: 'Era Explorer',
-    description: 'Given an event name, guess what century it happened in',
+    description: 'Match events to their era',
     icon: 'explore',
     gradientStart: '#EA580C',
     gradientEnd: '#C2410C',
@@ -116,7 +116,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: 'map_quest',
     name: 'Map Quest',
-    description: 'Given an event, guess where in the world it took place',
+    description: 'Pin events on the map',
     icon: 'map',
     gradientStart: '#0891B2',
     gradientEnd: '#0E7490',

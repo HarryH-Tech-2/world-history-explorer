@@ -33,7 +33,7 @@ import { UI_IMAGES } from '../../src/data/imageRegistry';
 
 const { width } = Dimensions.get('window');
 const MAP_WIDTH = width - 40;
-const MAP_HEIGHT = MAP_WIDTH * 0.58;
+const MAP_HEIGHT = MAP_WIDTH * 0.7;
 
 // Min / max zoom
 const MIN_SCALE = 1;
@@ -179,7 +179,7 @@ function EventDot({
       hitSlop={12}
       style={[
         styles.dotTouchable,
-        { left: x - 12, top: y - 12 },
+        { left: x - 14, top: y - 14 },
       ]}
     >
       {isSelected && (
@@ -371,6 +371,36 @@ export default function WorldMapScreen() {
                     })}
                   </Animated.View>
                 </GestureDetector>
+
+              {/* Zoom controls */}
+              <View style={styles.zoomControls}>
+                <Pressable
+                  onPress={() => {
+                    const newScale = Math.min(MAX_SCALE, scale.value + 0.5);
+                    scale.value = withSpring(newScale);
+                    savedScale.value = newScale;
+                  }}
+                  style={styles.zoomButton}
+                >
+                  <MaterialIcons name="add" size={22} color={colors.textPrimary} />
+                </Pressable>
+                <View style={styles.zoomDivider} />
+                <Pressable
+                  onPress={() => {
+                    const newScale = Math.max(MIN_SCALE, scale.value - 0.5);
+                    scale.value = withSpring(newScale);
+                    savedScale.value = newScale;
+                    const clamped = clampTranslate(translateX.value, translateY.value, newScale);
+                    translateX.value = withSpring(clamped.x);
+                    translateY.value = withSpring(clamped.y);
+                    savedTranslateX.value = clamped.x;
+                    savedTranslateY.value = clamped.y;
+                  }}
+                  style={styles.zoomButton}
+                >
+                  <MaterialIcons name="remove" size={22} color={colors.textPrimary} />
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.mapLegend}>
@@ -491,11 +521,38 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
+  // Zoom controls
+  zoomControls: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  zoomButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+
   // Event dots
   dotTouchable: {
     position: 'absolute',
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

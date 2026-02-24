@@ -115,7 +115,7 @@ export default function ProfileScreen() {
                 entering={SlideInRight.duration(400).delay(200 + index * 60)}
                 style={styles.statsGridItem}
               >
-                <GlassCard style={styles.statCard}>
+                <GlassCard style={styles.statCard} innerStyle={styles.statCardInner}>
                   <MaterialIcons
                     name={stat.icon}
                     size={24}
@@ -307,9 +307,11 @@ const styles = StyleSheet.create({
     width: STAT_WIDTH,
   },
   statCard: {
+    paddingVertical: 18,
+  },
+  statCardInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
   },
   statValue: {
     fontSize: 22,

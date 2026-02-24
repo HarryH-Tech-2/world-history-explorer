@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -103,6 +103,74 @@ function RealisticCloud({
   );
 }
 
+function FloatingParticles() {
+  const particles = useMemo(() => [
+    { x: 40, y: 200, size: 6, speed: 6000, delay: 0 },
+    { x: 150, y: 350, size: 4, speed: 8000, delay: 1000 },
+    { x: 280, y: 150, size: 5, speed: 7000, delay: 2000 },
+    { x: 60, y: 500, size: 3, speed: 9000, delay: 500 },
+    { x: 200, y: 100, size: 7, speed: 5500, delay: 3000 },
+    { x: 320, y: 400, size: 4, speed: 7500, delay: 1500 },
+    { x: 100, y: 300, size: 5, speed: 6500, delay: 2500 },
+    { x: 250, y: 550, size: 3, speed: 8500, delay: 800 },
+  ], []);
+
+  return (
+    <>
+      {particles.map((p, i) => (
+        <FloatingDot key={i} {...p} />
+      ))}
+    </>
+  );
+}
+
+function FloatingDot({ x, y, size, speed, delay: dotDelay }: { x: number; y: number; size: number; speed: number; delay: number }) {
+  const floatY = useSharedValue(y);
+  const floatX = useSharedValue(x);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(dotDelay, withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.15, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1, true
+    ));
+    floatY.value = withDelay(dotDelay, withRepeat(
+      withSequence(
+        withTiming(y - 30, { duration: speed, easing: Easing.inOut(Easing.ease) }),
+        withTiming(y + 30, { duration: speed, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1, true
+    ));
+    floatX.value = withDelay(dotDelay, withRepeat(
+      withSequence(
+        withTiming(x + 15, { duration: speed * 0.8, easing: Easing.inOut(Easing.ease) }),
+        withTiming(x - 15, { duration: speed * 0.8, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1, true
+    ));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    position: 'absolute',
+    left: floatX.value,
+    top: floatY.value,
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    backgroundColor: 'rgba(249,115,22,0.5)',
+    opacity: opacity.value,
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: size * 2,
+  }));
+
+  return <Animated.View style={style} />;
+}
+
 function AnimatedFullBackground() {
   const shimmer = useSharedValue(0);
 
@@ -146,6 +214,8 @@ function AnimatedFullBackground() {
         <RealisticCloud x={-300} y={80} scale={0.8} speed={35000} delay={3000} />
         <RealisticCloud x={-100} y={140} scale={0.6} speed={22000} delay={8000} />
         <RealisticCloud x={-250} y={55} scale={0.9} speed={32000} delay={12000} />
+        {/* Floating particles */}
+        <FloatingParticles />
       </View>
     );
 }
@@ -153,7 +223,8 @@ function AnimatedFullBackground() {
 export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useStorage();
-  const { isMuted, toggleMute } = useMusic();
+  const { isMuted, toggleMute, currentTrackId, selectTrack, tracks } = useMusic();
+  const [showMusicPicker, setShowMusicPicker] = useState(false);
   const mascot = MASCOTS.find(m => m.id === profile.mascot) || MASCOTS[0];
 
   const navigateToGame = (modeId: GameModeId) => {
@@ -186,7 +257,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerButtons}>
               <Pressable
-                onPress={toggleMute}
+                onPress={() => setShowMusicPicker(!showMusicPicker)}
                 style={({ pressed }) => [
                   styles.headerIconButton,
                   { opacity: pressed ? 0.7 : 1 },
@@ -209,6 +280,39 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </Animated.View>
+
+          {/* Music Picker */}
+          {showMusicPicker && (
+            <Animated.View entering={FadeIn.duration(200)} style={styles.musicPicker}>
+              <View style={styles.musicPickerHeader}>
+                <Text style={styles.musicPickerTitle}>Music</Text>
+                <Pressable onPress={toggleMute} style={styles.muteToggle}>
+                  <MaterialIcons
+                    name={isMuted ? 'volume-off' : 'volume-up'}
+                    size={20}
+                    color={isMuted ? colors.slate400 : colors.orange500}
+                  />
+                  <Text style={styles.muteToggleText}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+                </Pressable>
+              </View>
+              {tracks.map(track => (
+                <Pressable
+                  key={track.id}
+                  onPress={() => { selectTrack(track.id); }}
+                  style={[styles.trackItem, currentTrackId === track.id && styles.trackItemActive]}
+                >
+                  <MaterialIcons
+                    name={currentTrackId === track.id ? 'radio-button-checked' : 'radio-button-unchecked'}
+                    size={20}
+                    color={currentTrackId === track.id ? colors.orange500 : colors.slate400}
+                  />
+                  <Text style={[styles.trackName, currentTrackId === track.id && styles.trackNameActive]}>
+                    {track.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </Animated.View>
+          )}
 
           {/* Stats Summary */}
           <Animated.View entering={FadeInDown.duration(600).delay(150).springify()}>
@@ -266,7 +370,7 @@ export default function HomeScreen() {
                       </LinearGradient>
                     )}
                     <Text style={styles.modeName}>{mode.name}</Text>
-                    <Text style={styles.modeDescription} numberOfLines={2}>
+                    <Text style={styles.modeDescription}>
                       {mode.description}
                     </Text>
                   </GlassCard>
@@ -487,5 +591,63 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 17,
     textAlign: 'center',
+  },
+  musicPicker: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  musicPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  musicPickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  muteToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+  },
+  muteToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  trackItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  trackItemActive: {
+    backgroundColor: 'rgba(249,115,22,0.06)',
+  },
+  trackName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  trackNameActive: {
+    color: colors.orange500,
+    fontWeight: '600',
   },
 });

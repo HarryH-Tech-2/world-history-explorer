@@ -13,12 +13,13 @@ import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 
 import { colors } from '../../src/theme/colors';
 import { useGame } from '../../src/hooks/useGame';
+import { useStorage } from '../../src/hooks/useStorage';
 import { EventImage } from '../../src/components/EventImage';
 import { ScoreBar } from '../../src/components/ScoreBar';
 import { HintSection } from '../../src/components/HintSection';
 import { GameFeedback } from '../../src/components/GameFeedback';
 import { GlassCard } from '../../src/components/GlassCard';
-import { ERA_INFO, Era } from '../../src/data/models';
+import { ERA_INFO, Era, MASCOTS } from '../../src/data/models';
 
 const ACCENT_COLORS: [string, string] = ['#EA580C', '#C2410C'];
 
@@ -35,6 +36,8 @@ export default function EraExplorerScreen() {
     giveUp,
     isGameComplete,
   } = useGame();
+  const { profile } = useStorage();
+  const mascot = MASCOTS.find(m => m.id === profile.mascot) ?? MASCOTS[0];
 
   useEffect(() => {
     startEraExplorer();
@@ -169,6 +172,8 @@ export default function EraExplorerScreen() {
               isLastQuestion={isGameComplete}
               onNext={handleNext}
               accentColors={ACCENT_COLORS}
+              mascotId={profile.mascot}
+              mascotName={mascot.name}
             />
           </Animated.View>
         )}

@@ -16,7 +16,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { colors } from '../../src/theme/colors';
 import { useGame } from '../../src/hooks/useGame';
-import { MAX_GUESSES } from '../../src/data/models';
+import { useStorage } from '../../src/hooks/useStorage';
+import { MAX_GUESSES, MASCOTS } from '../../src/data/models';
 import { EventImage } from '../../src/components/EventImage';
 import { ScoreBar } from '../../src/components/ScoreBar';
 import { HintSection } from '../../src/components/HintSection';
@@ -37,6 +38,8 @@ export default function MapQuestScreen() {
     giveUp,
     isGameComplete,
   } = useGame();
+  const { profile } = useStorage();
+  const mascot = MASCOTS.find(m => m.id === profile.mascot) ?? MASCOTS[0];
   const [locationInput, setLocationInput] = useState('');
 
   useEffect(() => {
@@ -197,6 +200,8 @@ export default function MapQuestScreen() {
                 isLastQuestion={isGameComplete}
                 onNext={handleNext}
                 accentColors={ACCENT_COLORS}
+                mascotId={profile.mascot}
+                mascotName={mascot.name}
               />
             </Animated.View>
           )}

@@ -16,7 +16,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { colors } from '../../src/theme/colors';
 import { useGame } from '../../src/hooks/useGame';
-import { MAX_GUESSES } from '../../src/data/models';
+import { useStorage } from '../../src/hooks/useStorage';
+import { MAX_GUESSES, MASCOTS } from '../../src/data/models';
 import { EventImage } from '../../src/components/EventImage';
 import { ScoreBar } from '../../src/components/ScoreBar';
 import { HintSection } from '../../src/components/HintSection';
@@ -37,7 +38,10 @@ export default function ClassicGameScreen() {
     giveUp,
     isGameComplete,
   } = useGame();
+  const { profile } = useStorage();
+  const mascot = MASCOTS.find(m => m.id === profile.mascot) ?? MASCOTS[0];
   const [yearInput, setYearInput] = useState('');
+  const [isBCE, setIsBCE] = useState(false);
 
   useEffect(() => {
     startClassicGame(false);
@@ -52,7 +56,8 @@ export default function ClassicGameScreen() {
 
   const handleSubmit = () => {
     if (!yearInput.trim()) return;
-    submitAnswer(yearInput.trim());
+    const answer = isBCE ? `-${yearInput.trim()}` : yearInput.trim();
+    submitAnswer(answer);
     setYearInput('');
   };
 
@@ -69,6 +74,7 @@ export default function ClassicGameScreen() {
       });
     } else {
       nextEvent();
+      setIsBCE(false);
     }
   };
 
@@ -158,13 +164,27 @@ export default function ClassicGameScreen() {
                   <TextInput
                     value={yearInput}
                     onChangeText={setYearInput}
-                    placeholder='Enter year (e.g. 1776)'
+                    placeholder="Enter year (e.g. 1776)"
                     placeholderTextColor={colors.slate400}
                     style={styles.textInput}
                     keyboardType="numeric"
                     returnKeyType="done"
                     onSubmitEditing={handleSubmit}
                   />
+                  <View style={styles.eraToggle}>
+                    <Pressable
+                      onPress={() => setIsBCE(true)}
+                      style={[styles.eraOption, isBCE && styles.eraOptionActive]}
+                    >
+                      <Text style={[styles.eraOptionText, isBCE && styles.eraOptionTextActive]}>BCE</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setIsBCE(false)}
+                      style={[styles.eraOption, !isBCE && styles.eraOptionActive]}
+                    >
+                      <Text style={[styles.eraOptionText, !isBCE && styles.eraOptionTextActive]}>CE</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </GlassCard>
 
@@ -202,6 +222,8 @@ export default function ClassicGameScreen() {
                 isLastQuestion={isGameComplete}
                 onNext={handleNext}
                 accentColors={ACCENT_COLORS}
+                mascotId={profile.mascot}
+                mascotName={mascot.name}
               />
             </Animated.View>
           )}
@@ -257,4 +279,28 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   giveUpText: { fontSize: 14, color: colors.error, fontWeight: '600' },
+  eraToggle: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    marginLeft: 10,
+  },
+  eraOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  eraOptionActive: {
+    backgroundColor: colors.orange500,
+  },
+  eraOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  eraOptionTextActive: {
+    color: colors.white,
+  },
 });

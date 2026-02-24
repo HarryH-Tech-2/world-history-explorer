@@ -1,11 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, Image, StyleSheet, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HistoricalEvent } from '../data/models';
+import { MASCOT_IMAGES } from '../data/imageRegistry';
 import { GlassCard } from './GlassCard';
 import { GradientButton } from './GradientButton';
 import { colors } from '../theme/colors';
 import { formatYear } from '../utils/score';
+
+const CORRECT_MESSAGES = ["Brilliant!", "You nailed it!", "Amazing work!", "Spectacular!", "History genius!"];
+const INCORRECT_MESSAGES = ["Don't worry!", "You'll get it next time!", "Keep exploring!", "Almost there!", "Learning is winning!"];
 
 interface GameFeedbackProps {
   isCorrect: boolean;
@@ -14,6 +18,8 @@ interface GameFeedbackProps {
   isLastQuestion: boolean;
   onNext: () => void;
   accentColors?: [string, string];
+  mascotId?: string;
+  mascotName?: string;
 }
 
 export function GameFeedback({
@@ -23,7 +29,14 @@ export function GameFeedback({
   isLastQuestion,
   onNext,
   accentColors = [colors.orange500, colors.orange600],
+  mascotId,
+  mascotName,
 }: GameFeedbackProps) {
+  const mascotMessage = useMemo(() => {
+    const pool = isCorrect ? CORRECT_MESSAGES : INCORRECT_MESSAGES;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, [isCorrect]);
+
   return (
     <View style={styles.container}>
       {/* Result icon */}
@@ -41,6 +54,16 @@ export function GameFeedback({
 
       {isCorrect && pointsEarned > 0 && (
         <Text style={styles.points}>+{pointsEarned} points</Text>
+      )}
+
+      {mascotId && (
+        <View style={styles.mascotRow}>
+          <Image source={MASCOT_IMAGES[mascotId]} style={styles.mascotImage} />
+          <View style={[styles.speechBubble, { backgroundColor: isCorrect ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)' }]}>
+            <Text style={styles.speechText}>{mascotMessage}</Text>
+            {mascotName && <Text style={styles.mascotLabel}>— {mascotName}</Text>}
+          </View>
+        </View>
       )}
 
       {/* Event info card */}
@@ -93,6 +116,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.amber500,
     marginTop: 4,
+  },
+  mascotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 4,
+    width: '100%',
+  },
+  mascotImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(249,115,22,0.3)',
+  },
+  speechBubble: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+  },
+  speechText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  mascotLabel: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   infoCard: {
     width: '100%',

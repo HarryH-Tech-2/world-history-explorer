@@ -9,7 +9,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  SlideInRight,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   GestureDetector,
@@ -117,6 +124,7 @@ export default function TimelineGameScreen() {
                   isCorrectPlacement={isCorrectPlacement}
                   onMoveUp={() => moveTimelineEvent(index, index - 1)}
                   onMoveDown={() => moveTimelineEvent(index, index + 1)}
+                  onDragMove={moveTimelineEvent}
                 />
               </Animated.View>
             );
@@ -181,6 +189,7 @@ function DraggableEventCard({
   isCorrectPlacement,
   onMoveUp,
   onMoveDown,
+  onDragMove,
 }: {
   event: HistoricalEvent;
   index: number;
@@ -189,106 +198,147 @@ function DraggableEventCard({
   isCorrectPlacement: boolean | null;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onDragMove: (from: number, to: number) => void;
 }) {
-  // Long press gesture to indicate draggability
-  const longPress = Gesture.LongPress()
-    .minDuration(200)
+  const translateY = useSharedValue(0);
+  const isDragging = useSharedValue(false);
+  const cardScale = useSharedValue(1);
+
+  const CARD_HEIGHT = 90; // approximate height of each card + gap
+
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(200)
     .onStart(() => {
-      // Visual feedback handled by the pressable
+      isDragging.value = true;
+      cardScale.value = withSpring(1.03);
+    })
+    .onUpdate((e) => {
+      translateY.value = e.translationY;
+    })
+    .onEnd(() => {
+      isDragging.value = false;
+      cardScale.value = withSpring(1);
+
+      const movedPositions = Math.round(translateY.value / CARD_HEIGHT);
+      const newIndex = Math.max(0, Math.min(totalCount - 1, index + movedPositions));
+
+      translateY.value = withSpring(0);
+
+      if (newIndex !== index) {
+        runOnJS(onDragMove)(index, newIndex);
+      }
     });
 
-  return (
-    <GestureDetector gesture={longPress}>
-      <View>
-        <GlassCard
-          style={{
-            ...styles.eventCard,
-            ...(isSubmitted && isCorrectPlacement ? styles.eventCardCorrect : {}),
-            ...(isSubmitted && isCorrectPlacement === false ? styles.eventCardIncorrect : {}),
-          }}
-        >
-          <View style={styles.eventCardContent}>
-            {/* Drag handle */}
-            {!isSubmitted && (
-              <View style={styles.dragHandle}>
-                <MaterialIcons name="drag-indicator" size={24} color={colors.slate400} />
-              </View>
-            )}
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: translateY.value },
+      { scale: cardScale.value },
+    ],
+    zIndex: isDragging.value ? 100 : 0,
+    shadowOpacity: isDragging.value ? 0.15 : 0.06,
+    elevation: isDragging.value ? 10 : 3,
+  }));
 
-            {/* Position number */}
-            <View
-              style={[
-                styles.positionBadge,
-                isSubmitted && isCorrectPlacement && styles.positionBadgeCorrect,
-                isSubmitted && isCorrectPlacement === false && styles.positionBadgeIncorrect,
+  const cardContent = (
+    <GlassCard
+      style={{
+        ...styles.eventCard,
+        ...(isSubmitted && isCorrectPlacement ? styles.eventCardCorrect : {}),
+        ...(isSubmitted && isCorrectPlacement === false ? styles.eventCardIncorrect : {}),
+      }}
+    >
+      <View style={styles.eventCardContent}>
+        {/* Drag handle */}
+        {!isSubmitted && (
+          <View style={styles.dragHandle}>
+            <MaterialIcons name="drag-indicator" size={24} color={colors.slate400} />
+          </View>
+        )}
+
+        {/* Position number */}
+        <View
+          style={[
+            styles.positionBadge,
+            isSubmitted && isCorrectPlacement && styles.positionBadgeCorrect,
+            isSubmitted && isCorrectPlacement === false && styles.positionBadgeIncorrect,
+          ]}
+        >
+          <Text style={styles.positionText}>{index + 1}</Text>
+        </View>
+
+        {/* Event details */}
+        <View style={styles.eventInfo}>
+          <Text style={styles.eventName} numberOfLines={2}>
+            {event.name}
+          </Text>
+          <Text style={styles.eventDescription} numberOfLines={2}>
+            {event.description}
+          </Text>
+          {isSubmitted && (
+            <View style={styles.yearRow}>
+              <MaterialIcons
+                name="calendar-today"
+                size={13}
+                color={isCorrectPlacement ? colors.success : colors.error}
+              />
+              <Text
+                style={[
+                  styles.yearText,
+                  { color: isCorrectPlacement ? colors.success : colors.error },
+                ]}
+              >
+                {formatYear(event.year)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Arrow buttons or result icon */}
+        {!isSubmitted ? (
+          <View style={styles.arrowColumn}>
+            <Pressable
+              onPress={onMoveUp}
+              disabled={index === 0}
+              style={({ pressed }) => [
+                styles.arrowButton,
+                { opacity: index === 0 ? 0.3 : pressed ? 0.6 : 1 },
               ]}
             >
-              <Text style={styles.positionText}>{index + 1}</Text>
-            </View>
-
-            {/* Event details */}
-            <View style={styles.eventInfo}>
-              <Text style={styles.eventName} numberOfLines={2}>
-                {event.name}
-              </Text>
-              <Text style={styles.eventDescription} numberOfLines={2}>
-                {event.description}
-              </Text>
-              {isSubmitted && (
-                <View style={styles.yearRow}>
-                  <MaterialIcons
-                    name="calendar-today"
-                    size={13}
-                    color={isCorrectPlacement ? colors.success : colors.error}
-                  />
-                  <Text
-                    style={[
-                      styles.yearText,
-                      { color: isCorrectPlacement ? colors.success : colors.error },
-                    ]}
-                  >
-                    {formatYear(event.year)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Arrow buttons or result icon */}
-            {!isSubmitted ? (
-              <View style={styles.arrowColumn}>
-                <Pressable
-                  onPress={onMoveUp}
-                  disabled={index === 0}
-                  style={({ pressed }) => [
-                    styles.arrowButton,
-                    { opacity: index === 0 ? 0.3 : pressed ? 0.6 : 1 },
-                  ]}
-                >
-                  <MaterialIcons name="keyboard-arrow-up" size={24} color={colors.white} />
-                </Pressable>
-                <Pressable
-                  onPress={onMoveDown}
-                  disabled={index === totalCount - 1}
-                  style={({ pressed }) => [
-                    styles.arrowButton,
-                    { opacity: index === totalCount - 1 ? 0.3 : pressed ? 0.6 : 1 },
-                  ]}
-                >
-                  <MaterialIcons name="keyboard-arrow-down" size={24} color={colors.white} />
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.resultIcon}>
-                <MaterialIcons
-                  name={isCorrectPlacement ? 'check-circle' : 'cancel'}
-                  size={28}
-                  color={isCorrectPlacement ? colors.success : colors.error}
-                />
-              </View>
-            )}
+              <MaterialIcons name="keyboard-arrow-up" size={24} color={colors.white} />
+            </Pressable>
+            <Pressable
+              onPress={onMoveDown}
+              disabled={index === totalCount - 1}
+              style={({ pressed }) => [
+                styles.arrowButton,
+                { opacity: index === totalCount - 1 ? 0.3 : pressed ? 0.6 : 1 },
+              ]}
+            >
+              <MaterialIcons name="keyboard-arrow-down" size={24} color={colors.white} />
+            </Pressable>
           </View>
-        </GlassCard>
+        ) : (
+          <View style={styles.resultIcon}>
+            <MaterialIcons
+              name={isCorrectPlacement ? 'check-circle' : 'cancel'}
+              size={28}
+              color={isCorrectPlacement ? colors.success : colors.error}
+            />
+          </View>
+        )}
       </View>
+    </GlassCard>
+  );
+
+  if (isSubmitted) {
+    return <View>{cardContent}</View>;
+  }
+
+  return (
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={animatedStyle}>
+        {cardContent}
+      </Animated.View>
     </GestureDetector>
   );
 }
